@@ -1,0 +1,48 @@
+name: rate-limit-gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Count author's recent PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Operator override: a label set by a human bypasses the gate.
+          if echo "$PR_LABELS" | python3 -c "import sys,json; names=[l['name'] for l in json.load(sys.stdin)]; sys.exit(0 if 'rate-limit-override' in names else 1)"; then
+            echo "::notice::'rate-limit-override' label present, allowing"
+            exit 0
+          fi
+
+          since=$(date -u -d '1 day ago' +%Y-%m-%dT%H:%M:%SZ)
+          # Search returns PRs created in the window by this author in this repo.
+          count=$(curl -fsS \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/search/issues?q=repo:${REPO}+author:${AUTHOR}+type:pr+created:%3E${since}" \
+            | python3 -c 'import sys,json; print(json.load(sys.stdin)["total_count"])')
+
+          echo "Author '$AUTHOR' has $count PRs in this repo over the last 24h."
+
+          MAX=5
+          if [ "$count" -gt "$MAX" ]; then
+            echo "::error::Rate limit exceeded: $count PRs in 24h (max $MAX)."
+            echo "If this is intentional, a maintainer can apply the 'rate-limit-override' label to bypass."
+            exit 1
+          fi
+
+          echo "::notice::Within rate limit ($count <= $MAX)"

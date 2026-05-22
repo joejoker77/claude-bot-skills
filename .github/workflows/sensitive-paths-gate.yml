@@ -1,0 +1,58 @@
+name: sensitive-paths-gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Identify sensitive paths in diff
+        id: check
+        env:
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "push to main — gate is informational only, skipping"
+            exit 0
+          fi
+          changed=$(git diff --name-only origin/main...HEAD)
+          echo "Files changed:"
+          echo "$changed"
+          echo
+
+          # Paths considered sensitive: workflow definitions, deployment infra,
+          # repo policy, and the gate logic itself.
+          sensitive=$(echo "$changed" | grep -E '^(\.github/|users\.yaml$|deploy/|CODEOWNERS$)' || true)
+
+          if [ -z "$sensitive" ]; then
+            echo "::notice::No sensitive paths touched"
+            exit 0
+          fi
+
+          echo "PR touches sensitive paths:"
+          echo "$sensitive"
+          echo
+
+          # Check for bypass label set by a human maintainer
+          if echo "$PR_LABELS" | python3 -c "import sys,json; names=[l['name'] for l in json.load(sys.stdin)]; sys.exit(0 if 'sensitive-path-approved' in names else 1)"; then
+            echo "::notice::'sensitive-path-approved' label present, allowing"
+            exit 0
+          fi
+
+          echo "::error::Sensitive paths touched without 'sensitive-path-approved' label."
+          echo "A repository maintainer must review the change and apply the label before this PR can merge."
+          exit 1
