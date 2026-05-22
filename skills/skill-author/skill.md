@@ -91,37 +91,59 @@ create it yourself.
        "$BRANCH:$BRANCH"
    ```
 
-8. **Open the PR via the GitHub API**:
+8. **Open the PR via the GitHub API**. Capture both `html_url` (for the
+   user) AND `node_id` (for the auto-merge call in step 9):
 
    ```sh
    PR_BODY="Authored by the $USER bot at $(date -Is).\n\nUser asked: <quote>"
-   curl -sS -X POST \
+   PR_RESPONSE=$(curl -sS -X POST \
        -H "Authorization: Bearer $GITHUB_PAT_SKILLS" \
        -H "Accept: application/vnd.github+json" \
        "https://api.github.com/repos/$OWNER/$REPO/pulls" \
-       -d "$(python3 -c 'import json,sys,os; print(json.dumps({
+       -d "$(python3 -c 'import json,sys; print(json.dumps({
            "title": sys.argv[1],
            "head": sys.argv[2],
            "base": "main",
            "body": sys.argv[3],
            "maintainer_can_modify": True
-       }))' "<PR title>" "$BRANCH" "$PR_BODY")" \
-     | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("html_url") or d)'
+       }))' "<PR title>" "$BRANCH" "$PR_BODY")")
+   PR_URL=$(echo "$PR_RESPONSE" | python3 -c 'import sys,json; print(json.load(sys.stdin)["html_url"])')
+   PR_NODE_ID=$(echo "$PR_RESPONSE" | python3 -c 'import sys,json; print(json.load(sys.stdin)["node_id"])')
+   echo "$PR_URL"
    ```
 
-9. **Clean up and report back to the user**:
+9. **Enable auto-merge** on the PR. GitHub will then merge automatically
+   once the required CI checks pass — no human merge step needed:
 
    ```sh
-   cd /
-   rm -rf "$WORKDIR"
+   curl -sS -X POST \
+       -H "Authorization: Bearer $GITHUB_PAT_SKILLS" \
+       -H "Accept: application/vnd.github+json" \
+       "https://api.github.com/graphql" \
+       -d "$(python3 -c 'import json,sys; print(json.dumps({
+           "query": "mutation($pr: ID!) { enablePullRequestAutoMerge(input: { pullRequestId: $pr, mergeMethod: SQUASH }) { pullRequest { autoMergeRequest { enabledAt } } } }",
+           "variables": {"pr": sys.argv[1]}
+       }))' "$PR_NODE_ID")"
    ```
 
-   Send the user the PR URL printed in step 8 via the Telegram reply
-   tool. Tell them:
-   - CI is running skill-scanner against the change
-   - To merge, they review on GitHub and click "Squash and merge"
-   - Within ~10 minutes after merge, the new skill will be on the
-     appropriate bots (per `users.yaml` whitelist)
+   If auto-merge can't be enabled (e.g., no required checks defined, or
+   PR already mergeable), the GraphQL response will contain an `errors`
+   field — fall back to telling the user the PR is ready for manual
+   merge.
+
+10. **Clean up and report back to the user**:
+
+    ```sh
+    cd /
+    rm -rf "$WORKDIR"
+    ```
+
+    Send the PR URL via the Telegram reply tool. Tell them:
+    - CI is running; on green, PR will auto-merge
+    - Within ~10 minutes after merge, the new skill will be on the
+      appropriate bots (per `users.yaml` whitelist)
+    - If CI fails or auto-merge is blocked, the user can review on
+      GitHub directly
 
 ## Notes
 
