@@ -1,0 +1,17 @@
+# local scanner output, never check in
+*.scan.json
+.skill-scanner/
+.pytest_cache/
+__pycache__/
+
+# editor cruft
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# secrets — should never appear, but belt + suspenders
+.env
+.env.*
+*.pem
+*.key
