@@ -77,12 +77,16 @@ create it yourself.
    ```
 
 7. **Commit and push the branch** (same URL-with-PAT pattern as the
-   clone; `http.extraHeader` alone doesn't work for push either):
+   clone; `http.extraHeader` alone doesn't work for push either).
+   Do NOT pass `-u` — that would write the credentialed URL into
+   `.git/config` as the upstream remote, leaking the PAT into the
+   workdir. The clone + push + cleanup workflow is one-shot, no
+   upstream tracking is needed:
 
    ```sh
    git add -A
    git commit -m "<short description of the change>"
-   git push -u \
+   git push \
        "https://x-access-token:$GITHUB_PAT_SKILLS@github.com/$OWNER/$REPO.git" \
        "$BRANCH:$BRANCH"
    ```
