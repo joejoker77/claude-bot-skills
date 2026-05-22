@@ -1,0 +1,13 @@
+[Unit]
+Description=Periodic deploy-skills for %i
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+RandomizedDelaySec=1min
+AccuracySec=30s
+Persistent=true
+Unit=skill-deploy@%i.service
+
+[Install]
+WantedBy=timers.target

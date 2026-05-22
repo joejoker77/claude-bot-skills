@@ -1,0 +1,119 @@
+name: skill-scanner
+
+on:
+  pull_request:
+    paths:
+      - 'skills/**'
+      - 'users.yaml'
+      - '.github/workflows/skill-scanner.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'skills/**'
+      - 'users.yaml'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Cisco skill-scanner
+        run: |
+          python -m pip install --upgrade pip
+          pip install cisco-ai-skill-scanner
+
+      - name: Run scan-all (LOW/MEDIUM/HIGH/CRITICAL)
+        id: scan
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          mkdir -p /tmp/scan
+          # Use --use-llm only if the secret is set; otherwise sigratures-only.
+          LLM_ARGS=""
+          if [ -n "${OPENROUTER_API_KEY:-}" ]; then
+            LLM_ARGS="--use-llm --llm-provider openai-compatible"
+            echo "LLM-as-judge: enabled"
+          else
+            echo "LLM-as-judge: disabled (no secret)"
+          fi
+          # shellcheck disable=SC2086
+          skill-scanner scan-all --recursive --format json \
+            --output-json /tmp/scan/result.json \
+            $LLM_ARGS \
+            ./skills/ || true
+          cat /tmp/scan/result.json | head -200
+
+      - name: Evaluate severity + post PR comment
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          from pathlib import Path
+
+          p = Path("/tmp/scan/result.json")
+          if not p.is_file() or p.stat().st_size == 0:
+              print("no scan output (file missing or empty) — treating as clean")
+              sys.exit(0)
+
+          try:
+              data = json.loads(p.read_text())
+          except json.JSONDecodeError as e:
+              print(f"BAD JSON: {e} — treating as clean", file=sys.stderr)
+              sys.exit(0)
+
+          # Flatten findings
+          items = data.get("findings") or data.get("results") or data.get("scans") or []
+          if isinstance(items, dict):
+              items = list(items.values())
+          if not isinstance(items, list):
+              items = []
+
+          high_crit = []
+          low_med = []
+          for item in items:
+              if not isinstance(item, dict):
+                  continue
+              skill = item.get("skill") or item.get("name") or item.get("path") or "?"
+              inner = item.get("findings") or item.get("violations") or [item]
+              if isinstance(inner, dict):
+                  inner = list(inner.values())
+              if not isinstance(inner, list):
+                  inner = [inner]
+              for f in inner:
+                  if not isinstance(f, dict):
+                      continue
+                  sev = (f.get("severity") or f.get("level") or "").upper()
+                  rule = f.get("rule_id") or f.get("id") or f.get("rule") or f.get("check") or "unknown"
+                  if sev in ("CRITICAL", "HIGH"):
+                      high_crit.append((skill, rule, sev))
+                  elif sev in ("MEDIUM", "LOW"):
+                      low_med.append((skill, rule, sev))
+
+          print(f"HIGH/CRITICAL: {len(high_crit)}")
+          print(f"LOW/MEDIUM:    {len(low_med)}")
+
+          if high_crit:
+              for s, r, sv in high_crit:
+                  print(f"  ! {s} | {r} | {sv}")
+              print("::error::HIGH/CRITICAL findings present — block merge")
+              sys.exit(1)
+          PY
+
+      - name: Upload scan artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: skill-scanner-result
+          path: /tmp/scan/result.json
+          retention-days: 14

@@ -1,0 +1,15 @@
+[Unit]
+Description=Deploy skills from claude-bot-skills repo for %i
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/deploy-skills %i
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=5min
+ProtectSystem=strict
+ReadWritePaths=/home/%i/.claude /var/log/skill-deploy
+ProtectHome=read-only
+NoNewPrivileges=true

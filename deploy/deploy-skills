@@ -1,0 +1,130 @@
+#!/bin/bash
+# deploy-skills USER
+#
+# Pulls latest from the claude-bot-skills repo for the given user,
+# filters skills by users.yaml whitelist, and rsyncs allowed skills
+# into ~USER/.claude/skills/.
+#
+# Designed to be called by a systemd timer as root. Drops to USER for
+# the git operations (uses USER's deploy key) and for rsync ownership.
+#
+# Log: /var/log/skill-deploy/USER.log
+
+set -euo pipefail
+
+u="${1:?usage: deploy-skills USER}"
+
+if ! id "$u" >/dev/null 2>&1; then
+  echo "$(date -Is) unknown user $u" >&2
+  exit 2
+fi
+
+LOG_DIR=/var/log/skill-deploy
+mkdir -p "$LOG_DIR"
+LOG="$LOG_DIR/${u}.log"
+exec >> "$LOG" 2>&1
+
+HOME_DIR="/home/$u"
+REPO_DIR="$HOME_DIR/.claude/skills-repo"
+SKILLS_DIR="$HOME_DIR/.claude/skills"
+SSH_ALIAS="claude-bot-skills.github"
+
+# Read repo URL from /root/.github-pat (which holds GITHUB_OWNER + GITHUB_REPO)
+# The deploy key is configured to alias `claude-bot-skills.github` to the
+# real GitHub via ~/.ssh/config — so we just need owner/repo names here.
+# shellcheck disable=SC1091
+if [ -r /root/.github-pat ]; then
+  set -a
+  . /root/.github-pat
+  set +a
+fi
+: "${GITHUB_OWNER:=joejoker77}"
+: "${GITHUB_REPO:=claude-bot-skills}"
+REMOTE="git@${SSH_ALIAS}:${GITHUB_OWNER}/${GITHUB_REPO}.git"
+
+echo "=== $(date -Is) deploy-skills $u ==="
+echo "remote: $REMOTE"
+
+# Pull or clone as the user (uses the user's per-bot deploy key)
+if [ -d "$REPO_DIR/.git" ]; then
+  runuser -u "$u" -- git -C "$REPO_DIR" fetch --quiet origin main
+  runuser -u "$u" -- git -C "$REPO_DIR" reset --hard --quiet origin/main
+  HEAD_SHA=$(runuser -u "$u" -- git -C "$REPO_DIR" rev-parse --short HEAD)
+  echo "pulled, HEAD=$HEAD_SHA"
+else
+  install -d -o "$u" -g "$u" -m 755 "$REPO_DIR"
+  runuser -u "$u" -- git clone --quiet "$REMOTE" "$REPO_DIR"
+  HEAD_SHA=$(runuser -u "$u" -- git -C "$REPO_DIR" rev-parse --short HEAD)
+  echo "cloned, HEAD=$HEAD_SHA"
+fi
+
+# Compute allowed skills via Python YAML parse
+ALLOWED=$(python3 - "$REPO_DIR" "$u" <<'PYEOF'
+import os
+import sys
+
+repo, user = sys.argv[1], sys.argv[2]
+skills_root = os.path.join(repo, "skills")
+users_yaml = os.path.join(repo, "users.yaml")
+
+try:
+    import yaml
+    yaml_ok = True
+except ImportError:
+    yaml_ok = False
+
+all_skills = sorted(
+    d for d in os.listdir(skills_root)
+    if os.path.isdir(os.path.join(skills_root, d))
+) if os.path.isdir(skills_root) else []
+
+restrictions = {}
+if yaml_ok and os.path.isfile(users_yaml):
+    with open(users_yaml) as f:
+        data = yaml.safe_load(f) or {}
+    for slug, spec in (data.get("skills") or {}).items():
+        if isinstance(spec, dict):
+            users = spec.get("users")
+            if isinstance(users, list):
+                restrictions[slug] = users
+
+allowed = [
+    s for s in all_skills
+    if s not in restrictions or user in restrictions[s]
+]
+print(" ".join(allowed))
+PYEOF
+)
+echo "allowed: ${ALLOWED:-(none)}"
+
+# Ensure skills target exists with right owner
+install -d -o "$u" -g "$u" -m 755 "$SKILLS_DIR"
+
+# Remove any skills currently in target that aren't allowed (or no longer exist
+# in the repo).
+CURRENT=$(find "$SKILLS_DIR" -maxdepth 1 -mindepth 1 -type d -printf "%f\n" 2>/dev/null | sort)
+for c in $CURRENT; do
+  keep=0
+  for a in $ALLOWED; do
+    if [ "$a" = "$c" ]; then keep=1; break; fi
+  done
+  if [ $keep -eq 0 ]; then
+    echo "remove (not allowed for $u): $SKILLS_DIR/$c"
+    rm -rf "${SKILLS_DIR:?}/$c"
+  fi
+done
+
+# Rsync each allowed skill from repo into target
+for s in $ALLOWED; do
+  src="$REPO_DIR/skills/$s"
+  dst="$SKILLS_DIR/$s"
+  if [ ! -d "$src" ]; then
+    echo "WARN: $s in allowed list but missing from repo"
+    continue
+  fi
+  rsync -a --delete "$src/" "$dst/"
+  chown -R "$u:$u" "$dst"
+  echo "deployed: $s"
+done
+
+echo "done"
