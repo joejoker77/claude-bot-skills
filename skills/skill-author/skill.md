@@ -39,12 +39,16 @@ create it yourself.
    ```
 
 3. **Clone the repo to a fresh temp dir** (do NOT reuse
-   `~/.claude/skills-repo`, that one belongs to the deploy mechanism):
+   `~/.claude/skills-repo`, that one belongs to the deploy mechanism).
+   Embed the PAT in the clone URL — git's `http.extraHeader` form
+   alone does not satisfy the credential prompt, the URL form is what
+   actually works:
 
    ```sh
    WORKDIR=$(mktemp -d /tmp/skill-author.XXXXXX)
-   git -c "http.extraHeader=Authorization: Bearer $GITHUB_PAT_SKILLS" \
-       clone --depth 1 "https://github.com/$OWNER/$REPO.git" "$WORKDIR"
+   git clone --depth 1 \
+       "https://x-access-token:$GITHUB_PAT_SKILLS@github.com/$OWNER/$REPO.git" \
+       "$WORKDIR"
    cd "$WORKDIR"
    ```
 
@@ -72,12 +76,15 @@ create it yourself.
    git config user.email "${USER}+bot@ai-assistant.gg"
    ```
 
-7. **Commit and push the branch**:
+7. **Commit and push the branch** (same URL-with-PAT pattern as the
+   clone; `http.extraHeader` alone doesn't work for push either):
 
    ```sh
    git add -A
    git commit -m "<short description of the change>"
-   git -c "http.extraHeader=Authorization: Bearer $GITHUB_PAT_SKILLS" push -u origin "$BRANCH"
+   git push -u \
+       "https://x-access-token:$GITHUB_PAT_SKILLS@github.com/$OWNER/$REPO.git" \
+       "$BRANCH:$BRANCH"
    ```
 
 8. **Open the PR via the GitHub API**:

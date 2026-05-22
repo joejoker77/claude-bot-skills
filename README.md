@@ -54,8 +54,32 @@ A skill is deployed to **all 8 bots by default**. To restrict, add an entry
 in `users.yaml` listing the allowed bot users — see that file's header for
 the schema.
 
+## Authoring via bot
+
+Bots can author skills here on behalf of their human users. Each bot has
+a per-user PAT at `~/.skills-pat` (mode 600, fine-grained scope: contents
+and pull-requests R/W on this repo only). The `skill-author` meta-skill
+walks each bot through the workflow: source PAT → clone to `/tmp` →
+branch → edit → push → open PR via the GitHub API.
+
+Direct push to `main` is impossible — branch protection requires PR
+plus the `scan` status check. Even if a bot is compromised and its PAT
+leaks, the worst it can do is open a noisy PR. Humans gate merges.
+
+When you (the human) want to ship a skill change:
+
+- **Via your bot** — say "create a skill that …" or "edit the X skill to …".
+  The bot drafts in `/tmp`, opens a PR, replies with the URL. You
+  review on GitHub and merge.
+- **Directly** — clone the repo locally with your own SSH/PAT, edit,
+  push, PR, merge. Same gates apply.
+
+Either way, after merge the change reaches affected bots within ~10
+minutes via `skill-deploy@USER.timer`.
+
 ## Bootstrap state (2026-05-22)
 
-- 1 skill: `proposal-generator` (migrated from dmrudenko's bot, restricted
-  to dmrudenko via `users.yaml`).
-- Deploy mechanism and CI wired in subsequent commits.
+- 2 skills: `proposal-generator` (restricted to dmrudenko via
+  `users.yaml`), `skill-author` (deployed to all 8 bots).
+- Deploy mechanism, CI, branch protection, per-bot author PATs all
+  wired in subsequent commits.
