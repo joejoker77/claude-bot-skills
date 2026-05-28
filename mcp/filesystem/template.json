@@ -1,0 +1,9 @@
+{
+  "command": "npx",
+  "args": [
+    "-y",
+    "@modelcontextprotocol/server-filesystem",
+    "${SECRET:FS_ROOT}"
+  ],
+  "timeout": 30000
+}
