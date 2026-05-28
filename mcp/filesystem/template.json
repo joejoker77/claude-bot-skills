@@ -1,9 +1,18 @@
 {
-  "command": "npx",
-  "args": [
-    "-y",
-    "@modelcontextprotocol/server-filesystem",
-    "${SECRET:FS_ROOT}"
-  ],
-  "timeout": 30000
+  "mcp_stanza": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-filesystem",
+      "${USER_CONFIG:fs_root}"
+    ],
+    "timeout": 30000
+  },
+  "user_config": {
+    "fs_root": {
+      "description": "Absolute path to the directory MCP can access (per-bot, set in users.yaml)",
+      "type": "path",
+      "required": true
+    }
+  }
 }

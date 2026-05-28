@@ -3,23 +3,39 @@
 Official `@modelcontextprotocol/server-filesystem` — gives Claude read/write
 access to ONE directory on disk (the path is set per-user, not in this repo).
 
-## Required per-user secrets
+## Schema (template.json)
 
-Set via `mcp-set-secret <user> filesystem`:
+This template uses the v2 schema:
+- `mcp_stanza` — the actual MCP server config that lands in settings.json
+- `user_config` — per-bot non-secret values (file paths, IDs, etc.)
+- `secrets` — (this MCP has none) per-bot HTTP credentials stored in OneCLI vault
+
+## Per-user config
+
+Set in `users.yaml`:
+
+```yaml
+mcp:
+  filesystem:
+    users: [vitaliy]                          # which bots get this MCP
+    user_config:
+      vitaliy:
+        fs_root: /home/vitaliy/work/mcp-sandbox
+    reason: "..."
+```
 
 | Key       | What it is                                  | Example                       |
 |-----------|---------------------------------------------|-------------------------------|
-| `FS_ROOT` | Absolute path to the directory MCP can see  | `/home/<user>/work/sandbox`   |
+| `fs_root` | Absolute path to the directory MCP can see  | `/home/<user>/work/sandbox`   |
 
-If `FS_ROOT` is not set for a user, deploy-mcp **skips this MCP for that user** —
-it never accidentally points at another user's path.
+`fs_root` is a path, NOT a credential — it's safe to live in git per user.
+
+If `fs_root` is missing for a user listed in `users`, deploy-mcp **skips this MCP for that user**.
 
 ## Notes
 
-- The path lives in each bot's own `/etc/mcp-secrets/<user>/filesystem.env`,
-  not in this repo and not in Telegram chats.
-- Pointing FS_ROOT at a sensitive directory grants Claude full read/write
+- Pointing `fs_root` at a sensitive directory grants Claude full read/write
   there. Pick the path deliberately.
-- This MCP is allowed only for bots listed in `users.yaml` under
-  `mcp.filesystem.users`. If the field is absent, all bots get it (same
-  convention as skills).
+- For MCPs that DO need API keys (Slack, GitHub, etc.), they go in OneCLI
+  vault via `mcp-set-secret <user> <slug> <secret-name>` — bot processes
+  never see the raw value.
