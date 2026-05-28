@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - 'skills/**'
+      - 'mcp/**'
       - 'users.yaml'
       - '.github/workflows/skill-scanner.yml'
   push:
     branches: [main]
     paths:
       - 'skills/**'
+      - 'mcp/**'
       - 'users.yaml'
 
 permissions:
