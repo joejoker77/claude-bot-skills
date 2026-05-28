@@ -1,0 +1,24 @@
+{
+  "mcp_stanza": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-github"
+    ],
+    "env": {
+      "GITHUB_PERSONAL_ACCESS_TOKEN": "${SECRET:github_pat}"
+    },
+    "timeout": 60000
+  },
+
+  "user_config": {},
+
+  "secrets": {
+    "github_pat": {
+      "host_pattern": "api.github.com",
+      "header_name": "Authorization",
+      "value_format": "Bearer {value}",
+      "description": "GitHub Personal Access Token. Classic PAT or fine-grained PAT. Needs at minimum `repo` and `read:org` if the bot is expected to read/write code; restrict scopes to the minimum the user actually wants the MCP to do."
+    }
+  }
+}
