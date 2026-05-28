@@ -48,6 +48,11 @@ skills:
       - dmrudenko
     reason: "Depends on ~/aas-proposals/generate.py and ~/.env.aas (CF_TOKEN), which currently exist only on dmrudenko's home."
 
+  mcp-installer:
+    users:
+      - vitaliy
+    reason: "Initial canary. Needs narrow sudoers entry (mcp-set-secret <user> *) — only vitaliy has it for now. Expand to others after the entry is provisioned per bot."
+
 mcp:
   filesystem:
     users:
