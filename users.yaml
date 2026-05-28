@@ -48,10 +48,12 @@ skills:
       - dmrudenko
     reason: "Depends on ~/aas-proposals/generate.py and ~/.env.aas (CF_TOKEN), which currently exist only on dmrudenko's home."
 
-  mcp-installer:
-    users:
-      - vitaliy
-    reason: "Initial canary. Needs narrow sudoers entry (mcp-set-secret <user> *) — only vitaliy has it for now. Expand to others after the entry is provisioned per bot."
+  # mcp-installer is now deployed to ALL bots by default — entry removed.
+  # Prerequisite: each bot needs the narrow sudoers entry
+  #   <bot-user> ALL=(root) NOPASSWD: /usr/local/sbin/mcp-set-secret <bot-user> *
+  # installed in /etc/sudoers.d/mcp-installer-<bot-user>. The skill's preflight
+  # check warns when SUDO_MISSING — bots without the entry won't be able to
+  # set secrets, but the skill won't crash; it just escalates to the operator.
 
 mcp:
   filesystem:
