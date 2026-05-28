@@ -23,17 +23,24 @@
 #       users: [ <bot-user-1>, ... ]
 #       reason: "short one-line reason"
 #
-# MCP secrets — IMPORTANT
-# -----------------------
-# MCP servers often need API keys / tokens. NEVER put real secrets in this
-# file or in mcp/<slug>/template.json. Templates carry only ${SECRET:KEY}
-# placeholders. Real values live on the server in
+# MCP secrets and per-user config
+# --------------------------------
+# Templates (mcp/<slug>/template.json) declare two kinds of placeholders:
 #
-#   /etc/mcp-secrets/<user>/<slug>.env   (mode 600 root:root)
+#   ${USER_CONFIG:key}  — non-secret per-user values (file paths, IDs, etc.)
+#                         Set HERE under mcp.<slug>.user_config.<bot-user>.<key>
+#                         These live in git, safe because they are not credentials.
 #
-# set via the `mcp-set-secret <user> <slug>` helper. This guarantees that
-# even though all bots can SHARE the same MCP "template", each bot uses
-# its OWN credentials — no one can spend anyone else's API quota.
+#   ${SECRET:name}      — real API keys / tokens. NEVER in git, NEVER in this
+#                         file. Stored in the OneCLI vault running locally on
+#                         the host (127.0.0.1:10254). Bot processes never hold
+#                         the raw value — OneCLI's gateway proxy injects them
+#                         into outbound HTTPS requests at the host-pattern.
+#
+# To add a secret for a bot:
+#   mcp-set-secret <user> <slug> <secret-name>
+# (interactive, read -rs, value never lands in shell history). The secret
+# is bound to that bot's OneCLI agent, so it never bleeds across bots.
 
 skills:
   proposal-generator:
@@ -45,4 +52,7 @@ mcp:
   filesystem:
     users:
       - vitaliy
+    user_config:
+      vitaliy:
+        fs_root: /home/vitaliy/work/mcp-sandbox
     reason: "Initial MCP-sharing rollout — single canary bot. After validation, expand to others."
