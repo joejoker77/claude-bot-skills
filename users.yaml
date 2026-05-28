@@ -1,25 +1,48 @@
-# Per-skill bot user whitelist.
+# Per-skill and per-MCP bot user whitelist.
 #
-# A skill listed below is deployed ONLY to the bot users in its `users` field.
-# A skill NOT listed here is deployed to ALL 8 bots by default.
+# An entry listed below is deployed ONLY to the bot users in its `users` field.
+# An entry NOT listed here is deployed to ALL 8 bots by default.
 #
 # Bot users on 185.168.208.235:
 #   artemii, boris, daria, dmrudenko, leonid, team, vitaliy, viveanne
 #
 # Use this file when:
-#   - the skill depends on per-user resources (scripts, secrets, mounts) that
+#   - the entry depends on per-user resources (scripts, secrets, mounts) that
 #     don't exist on every bot
-#   - the skill is internal/staff-only and shouldn't reach paying users
-#   - the skill is a canary / experiment
+#   - the entry is internal/staff-only and shouldn't reach paying users
+#   - the entry is a canary / experiment
 #
 # Schema:
 #   skills:
 #     <skill-slug>:
 #       users: [ <bot-user-1>, <bot-user-2>, ... ]
 #       reason: "short one-line reason for the restriction"
+#
+#   mcp:
+#     <mcp-slug>:
+#       users: [ <bot-user-1>, ... ]
+#       reason: "short one-line reason"
+#
+# MCP secrets — IMPORTANT
+# -----------------------
+# MCP servers often need API keys / tokens. NEVER put real secrets in this
+# file or in mcp/<slug>/template.json. Templates carry only ${SECRET:KEY}
+# placeholders. Real values live on the server in
+#
+#   /etc/mcp-secrets/<user>/<slug>.env   (mode 600 root:root)
+#
+# set via the `mcp-set-secret <user> <slug>` helper. This guarantees that
+# even though all bots can SHARE the same MCP "template", each bot uses
+# its OWN credentials — no one can spend anyone else's API quota.
 
 skills:
   proposal-generator:
     users:
       - dmrudenko
     reason: "Depends on ~/aas-proposals/generate.py and ~/.env.aas (CF_TOKEN), which currently exist only on dmrudenko's home."
+
+mcp:
+  filesystem:
+    users:
+      - vitaliy
+    reason: "Initial MCP-sharing rollout — single canary bot. After validation, expand to others."
