@@ -55,11 +55,12 @@ skills:
   # check warns when SUDO_MISSING — bots without the entry won't be able to
   # set secrets, but the skill won't crash; it just escalates to the operator.
 
-mcp:
-  filesystem:
-    users:
-      - vitaliy
-    user_config:
-      vitaliy:
-        fs_root: /home/vitaliy/work/mcp-sandbox
-    reason: "Initial MCP-sharing rollout — single canary bot. After validation, expand to others."
+mcp: {}
+# filesystem canary retired 2026-05-29: MCP-sharing pipeline validated end-to-end
+# (template.json → users.yaml → deploy-mcp → settings.json, with OneCLI vault
+# binding for github PAT secret). The filesystem stanza was tripping AgentShield
+# regression every scan cycle on vitaliy (HIGH "mcp-risky-filesystem" vs baseline
+# that only had shellfirm), which kept triggering auto-revert + graceful-restart
+# and killed the Telegram MCP bun bridge. Leaving the template directory in
+# mcp/filesystem/ so future re-enables don't need to re-author the template;
+# just add the entry back to mcp: above.
