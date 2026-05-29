@@ -55,7 +55,13 @@ skills:
   # check warns when SUDO_MISSING — bots without the entry won't be able to
   # set secrets, but the skill won't crash; it just escalates to the operator.
 
-mcp: {}
+mcp:
+  filesystem:
+    users: [vitaliy]
+    user_config:
+      vitaliy:
+        fs_root: /home/vitaliy/work/mcp-sandbox
+    reason: "Smoke test of the MCP-sharing pipeline post the deploy-mcp-experimental + agentshield-rebaseline patch landed 2026-05-29. Will be removed after the cycle proves dead."
 # filesystem canary retired 2026-05-29: MCP-sharing pipeline validated end-to-end
 # (template.json → users.yaml → deploy-mcp → settings.json, with OneCLI vault
 # binding for github PAT secret). The filesystem stanza was tripping AgentShield
