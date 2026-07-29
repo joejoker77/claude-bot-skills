@@ -1,0 +1,17 @@
+{
+  "mcp_stanza": {
+    "type": "http",
+    "url": "https://mcp.exa.ai/mcp?tools=web_search_exa,web_search_advanced_exa,get_code_context_exa,crawling_exa,company_research_exa,people_search_exa,deep_researcher_start,deep_researcher_check"
+  },
+
+  "user_config": {},
+
+  "secrets": {
+    "exa-api": {
+      "host_pattern": "mcp.exa.ai",
+      "header_name": "x-api-key",
+      "value_format": "{value}",
+      "description": "Exa API key (https://dashboard.exa.ai). Injected by the OneCLI gateway proxy on outbound HTTPS to mcp.exa.ai; never written into settings.json or the URL. The key is shared across the fleet, but each bot still gets its own vault binding for isolation."
+    }
+  }
+}
