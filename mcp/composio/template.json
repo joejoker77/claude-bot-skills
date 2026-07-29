@@ -1,0 +1,11 @@
+{
+  "mcp_stanza": {
+    "type": "stdio",
+    "command": "/usr/local/bin/composio-mcp-bridge",
+    "timeout": 30000
+  },
+
+  "user_config": {},
+
+  "secrets": {}
+}
