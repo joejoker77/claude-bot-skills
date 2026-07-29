@@ -1,7 +1,10 @@
 {
   "mcp_stanza": {
     "type": "http",
-    "url": "https://mcp.exa.ai/mcp?tools=web_search_exa,web_search_advanced_exa,get_code_context_exa,crawling_exa,company_research_exa,people_search_exa,deep_researcher_start,deep_researcher_check"
+    "url": "https://mcp.exa.ai/mcp?tools=web_search_exa,web_search_advanced_exa,get_code_context_exa,crawling_exa,company_research_exa,people_search_exa,deep_researcher_start,deep_researcher_check",
+    "headers": {
+      "x-api-key": "${SECRET:exa-api}"
+    }
   },
 
   "user_config": {},
@@ -11,7 +14,7 @@
       "host_pattern": "mcp.exa.ai",
       "header_name": "x-api-key",
       "value_format": "{value}",
-      "description": "Exa API key (https://dashboard.exa.ai). Injected by the OneCLI gateway proxy on outbound HTTPS to mcp.exa.ai; never written into settings.json or the URL. The key is shared across the fleet, but each bot still gets its own vault binding for isolation."
+      "description": "Exa API key (https://dashboard.exa.ai). The ${SECRET:exa-api} marker lands in the x-api-key header as a literal placeholder; the OneCLI gateway proxy swaps it for the real key on outbound HTTPS to mcp.exa.ai. The marker also makes deploy-mcp GATE the exa stanza — it is skipped for any bot that does not have exa-api bound (so exa never deploys to unbound bots, avoiding the AgentShield external-URL HIGH finding). Shared key across the fleet; per-bot binding preserves isolation."
     }
   }
 }
