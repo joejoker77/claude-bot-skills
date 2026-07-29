@@ -33,23 +33,17 @@ onecli agents set-secrets --id <bot-agent-uuid> --secret-ids <...,exa-api-id>
 
 After binding, `deploy-mcp` writes `mcpServers.exa` on the next cycle.
 
-## ⚠️ Review note — deploy gating
+## Deploy gating (why the header marker)
 
-The stanza is keyless and relies on **host-pattern injection** at the proxy
-(matches the validated vitaliy-pilot config). Because there is no
-`${SECRET:exa-api}` marker *inside* the stanza, `deploy-mcp` will not
-auto-skip exa on bots that lack the binding — it deploys the stanza to all
-bots, and exa simply fails at runtime on any bot without `exa-api` bound.
+The stanza carries `${SECRET:exa-api}` in the `x-api-key` header. Two effects:
 
-If you prefer clean skip-when-unbound behavior (like github), change the
-stanza to carry the marker explicitly:
-
-```json
-"headers": { "x-api-key": "${SECRET:exa-api}" }
-```
-
-Left keyless here to reproduce the exact working reference; flag for the
-reviewer to pick.
+1. **Runtime:** the marker is a literal placeholder in `settings.json`; the
+   OneCLI proxy swaps it for the real key on outbound HTTPS to `mcp.exa.ai`.
+2. **Gating:** because the stanza references `${SECRET:exa-api}`, `deploy-mcp`
+   **skips exa for any bot that does not have `exa-api` bound** — exactly like
+   github. This prevents exa from deploying to unbound bots (which would both
+   fail at runtime AND trip AgentShield's external-URL HIGH finding — that
+   regression happened once with the earlier keyless form).
 
 ## Notes
 
