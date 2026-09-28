@@ -102,7 +102,10 @@ install -d -o "$u" -g "$u" -m 755 "$SKILLS_DIR"
 
 # Remove any skills currently in target that aren't allowed (or no longer exist
 # in the repo).
-CURRENT=$(find "$SKILLS_DIR" -maxdepth 1 -mindepth 1 -type d -printf "%f\n" 2>/dev/null | sort)
+# Never touch Claude Code's own claude.ai skill sync: synced/ plus its hidden
+# .staging/.trash dirs. Deleting them made Claude Code re-download every ~10 min
+# and the hash scanner alert on the "new" Anthropic skills each time.
+CURRENT=$(find "$SKILLS_DIR" -maxdepth 1 -mindepth 1 -type d ! -name synced ! -name '.*' -printf "%f\n" 2>/dev/null | sort)
 for c in $CURRENT; do
   keep=0
   for a in $ALLOWED; do
